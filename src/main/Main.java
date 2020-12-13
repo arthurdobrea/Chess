@@ -11,35 +11,216 @@ public class Main {
 
     static Map<String, Integer> charsToPosition = new HashMap<>();
     static List<Coordinate> listOfCoordinates = new ArrayList<>();
-    static String[][] board;
-    static boolean nextTurn = true;
+
+    static ChessFigure[][] board;
+    static ChessFigure emptyFigureCell = new ChessFigure("|-|", null);
+
+    static int turnCounter = 0;
+    static String emptyCell = "|-|";
 
     public static void main(String[] args) {
         initMap();
         createBoard();
         readMovesFromFile();
-        int i = 0;
-        while (nextTurn) {
-            move(listOfCoordinates.get(i));
+        handleRounds();
+    }
+
+    public static void handleRounds() {
+        while (true) {
             showBoard();
-            i++;
-            Scanner scanner = new Scanner(System.in);
-            String inputString = scanner.nextLine();
-            if (i == listOfCoordinates.size()){
-                return;
+            if (turnCounter == listOfCoordinates.size()) break;
+            scanFromKeyboard();
+            if (!moveCanBeDone(listOfCoordinates.get(turnCounter))) {
+                System.out.println("You can not make this move");
+                turnCounter++;
+                continue;
             }
-            if (inputString == null) {
-                nextTurn = false;
-            }else{
-                nextTurn = true;
+            move(listOfCoordinates.get(turnCounter));
+            turnCounter++;
+        }
+    }
+
+    private static boolean checkForMovementPattern(String figure, Coordinate coordinate) {
+        if (figure.equalsIgnoreCase("|p|")) {
+            return checkPawnMovementPattern(coordinate);
+        }
+        if (figure.equalsIgnoreCase("|n|")) {
+            return checkKnightMovementPattern(coordinate);
+        }
+        if (figure.equalsIgnoreCase("|r|")) {
+            return checkRookMovementPattern(coordinate);
+        }
+        if (figure.equalsIgnoreCase("|b|")) {
+            return checkBishopMovementPattern(coordinate);
+        }
+        if (figure.equalsIgnoreCase("|q|")) {
+            return checkRookMovementPattern(coordinate) || checkBishopMovementPattern(coordinate);
+        }
+
+        if (figure.equalsIgnoreCase("|k|")) {
+            return checkKingMovementPattern(coordinate);
+        }
+        return false;
+    }
+
+    public static boolean checkKingMovementPattern(Coordinate coordinate) {
+        if ((Math.abs(coordinate.initialRow - coordinate.desiredRow) <= 1) && (Math.abs(coordinate.initialColumn - coordinate.desiredColumn) <= 1)) {
+            return true;
+        }
+        return false;
+    }
+
+    public static boolean checkKnightMovementPattern(Coordinate coordinate) {
+        return ((Math.abs(coordinate.initialRow - coordinate.desiredRow) == 2) && ((Math.abs(coordinate.initialColumn - coordinate.desiredColumn) == 1))) ||
+                ((Math.abs(coordinate.initialRow - coordinate.desiredRow) == 1) && ((Math.abs(coordinate.initialColumn - coordinate.desiredColumn) == 2)));
+    }
+
+    public static boolean checkPawnMovementPattern(Coordinate coordinate) {
+        if (coordinate.initialRow == 1 || coordinate.initialRow == 6) {
+            if ((Math.abs(coordinate.initialRow - coordinate.desiredRow) <= 2 && (coordinate.initialColumn == coordinate.desiredColumn))) {
+                return true;
+            }
+        }
+        if ((Math.abs(coordinate.initialRow - coordinate.desiredRow) == 1 && (coordinate.initialColumn == coordinate.desiredColumn))) {
+            return true;
+        }
+        return false;
+    }
+
+    public static boolean checkBishopMovementPattern(Coordinate coordinate) {
+        if (Math.abs(coordinate.initialRow - coordinate.desiredRow) == Math.abs(coordinate.initialColumn - coordinate.desiredColumn)) {
+
+            //Лево вверх
+            if ((coordinate.desiredRow < coordinate.initialRow) && (coordinate.desiredColumn < coordinate.initialColumn)) {
+                for (int i = 1; i <= coordinate.initialRow - coordinate.desiredRow; ++i) {
+                    if (board[coordinate.initialRow - i][coordinate.initialColumn - i].name != emptyCell) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            //Лево вниз
+            if ((coordinate.desiredRow > coordinate.initialRow) && (coordinate.desiredColumn < coordinate.initialColumn)) {
+                for (int i = 1; i <= Math.abs(coordinate.initialRow - coordinate.desiredRow); ++i) {
+                    if (board[coordinate.initialRow + i][coordinate.initialColumn - i].name != emptyCell) {
+                        return false;
+                    }
+                }
+            }
+
+            //Право вверх
+            if ((coordinate.desiredRow < coordinate.initialRow) && (coordinate.desiredColumn > coordinate.initialColumn)) {
+                for (int i = 1; i <= Math.abs(coordinate.initialRow - coordinate.desiredRow); ++i) {
+                    if (board[coordinate.initialRow - i][coordinate.initialColumn + i].name != emptyCell) {
+                        return false;
+                    }
+                }
+            }
+
+            //Право вниз
+            if ((coordinate.desiredRow > coordinate.initialRow) && (coordinate.desiredColumn > coordinate.initialColumn)) {
+                for (int i = 1; i <= coordinate.initialRow - coordinate.desiredRow; ++i) {
+                    if (board[coordinate.initialRow + i][coordinate.initialColumn + i].name != emptyCell) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            return true;
+        }
+        return false;
+    }
+
+    public static boolean checkRookMovementPattern(Coordinate coordinate) {
+
+        //horizontal can be optimized
+        if (((coordinate.initialRow - coordinate.desiredRow == 0) && Math.abs(coordinate.initialColumn - coordinate.desiredColumn) > 0)) {
+
+            //horizontal лево
+            if (coordinate.initialColumn > coordinate.desiredColumn) {
+                for (int i = 1; i < Math.abs(coordinate.desiredColumn - coordinate.desiredColumn); ++i) {
+                    if (board[coordinate.initialRow][coordinate.initialColumn - i].name != emptyCell) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            //horizontal право
+            if (coordinate.initialColumn < coordinate.desiredColumn) {
+                for (int i = 1; i < coordinate.desiredColumn - coordinate.desiredColumn; ++i) {
+                    if (board[coordinate.initialRow][coordinate.initialColumn + i].name != emptyCell) {
+                        return false;
+                    }
+                }
+
+                return true;
             }
         }
 
+        //vertical can be optimized
+        if (((Math.abs(coordinate.initialRow - coordinate.desiredRow) > 0) && (coordinate.initialColumn - coordinate.desiredColumn) == 0)) {
+
+            //vertical вверх
+            if (coordinate.initialRow > coordinate.desiredRow) {
+                for (int i = 1; i < Math.abs(coordinate.desiredRow - coordinate.initialRow); ++i) {
+                    if (board[coordinate.initialRow - i][coordinate.initialColumn].name != emptyCell) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            //vertical вниз
+            if (coordinate.initialRow < coordinate.desiredRow) {
+                for (int i = 1; i < coordinate.desiredRow - coordinate.initialRow; ++i) {
+                    if (board[coordinate.initialRow + i][coordinate.initialColumn].name != emptyCell) {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static boolean moveCanBeDone(Coordinate coordinate) {
+        String figure = board[coordinate.initialRow][coordinate.initialColumn].name;
+
+        return (checkForMovementPattern(figure, coordinate) &&
+                checkIfFigureExistsOnThisPosition(coordinate) &&
+                checkIfThereIsNoAllyFigureOnThatPosition(coordinate));
+    }
+
+    public static boolean checkIfFigureExistsOnThisPosition(Coordinate coordinate) {
+        return !board[coordinate.initialRow][coordinate.initialColumn].equals(emptyCell);
+    }
+
+    public static boolean checkIfThereIsNoAllyFigureOnThatPosition(Coordinate coordinate) {
+        if (!board[coordinate.desiredRow][coordinate.desiredColumn].equals(emptyCell)) {
+            if (board[coordinate.initialRow][coordinate.initialColumn].team.equals(board[coordinate.desiredRow][coordinate.desiredColumn].team)) {
+                return false;
+            }else{
+                return true;
+            }
+        }
+        return true;
+    }
+
+    public static String scanFromKeyboard() {
+        System.out.println("Press enter for next move >>");
+        Scanner scanner = new Scanner(System.in);
+        String line = scanner.nextLine();
+        return line;
     }
 
     public static void move(Coordinate it) {
-        String figure = board[it.initialRow][it.initialColumn];
-        board[it.initialRow][it.initialColumn] = "|-|";
+        ChessFigure figure = board[it.initialRow][it.initialColumn];
+        board[it.initialRow][it.initialColumn] = emptyFigureCell;
         board[it.desiredRow][it.desiredColumn] = figure;
 
     }
@@ -47,7 +228,10 @@ public class Main {
     public static void readMovesFromFile() {
         List<String> listOfMoves = new ArrayList<>();
 
-        Path path = Paths.get("sample-moves.txt");
+//        Path path = Paths.get("sample-moves.txt");
+//        Path path = Paths.get("sample-moves-invalid.txt");
+//        Path path = Paths.get("checkmate.txt");
+        Path path = Paths.get("custom.txt");
 
         try (Stream<String> stream = Files.lines(path)) {
             stream.forEach(listOfMoves::add);
@@ -98,39 +282,48 @@ public class Main {
     }
 
     public static void createBoard() {
-        ChessFigure K = new ChessFigure("|" + "K" + "|");
-        ChessFigure Q = new ChessFigure("|" + "Q" + "|");
-        ChessFigure B = new ChessFigure("|" + "B" + "|");
-        ChessFigure N = new ChessFigure("|" + "N" + "|");
-        ChessFigure R = new ChessFigure("|" + "R" + "|");
+        ChessFigure K = new ChessFigure("|" + "K" + "|", "white");
+        ChessFigure Q = new ChessFigure("|" + "Q" + "|", "white");
+        ChessFigure B = new ChessFigure("|" + "B" + "|", "white");
+        ChessFigure N = new ChessFigure("|" + "N" + "|", "white");
+        ChessFigure R = new ChessFigure("|" + "R" + "|", "white");
+
         List<ChessFigure> P = new ArrayList<ChessFigure>(8);
-
         for (int i = 0; i < 8; i++) {
-            P.add(new ChessFigure("|" + "P" + "|"));
+            P.add(new ChessFigure("|" + "P" + "|", "white"));
         }
 
-        ChessFigure k = new ChessFigure("|" + "k" + "|");
-        ChessFigure q = new ChessFigure("|" + "q" + "|");
-        ChessFigure b = new ChessFigure("|" + "b" + "|");
-        ChessFigure n = new ChessFigure("|" + "n" + "|");
-        ChessFigure r = new ChessFigure("|" + "r" + "|");
+        ChessFigure k = new ChessFigure("|" + "k" + "|", "black");
+        ChessFigure q = new ChessFigure("|" + "q" + "|", "black");
+        ChessFigure b = new ChessFigure("|" + "b" + "|", "black");
+        ChessFigure n = new ChessFigure("|" + "n" + "|", "black");
+        ChessFigure r = new ChessFigure("|" + "r" + "|", "black");
+
         List<ChessFigure> p = new ArrayList<ChessFigure>(8);
-
         for (int i = 0; i < 8; i++) {
-            p.add(new ChessFigure("|" + "p" + "|"));
+            p.add(new ChessFigure("|" + "p" + "|", "black"));
         }
 
 
-        board = new String[][]{
-                {R.name, N.name, B.name, Q.name, K.name, B.name, N.name, R.name},
-                {P.get(0).name, P.get(1).name, P.get(2).name, P.get(3).name, P.get(4).name, P.get(5).name, P.get(6).name, P.get(7).name},
-                {"|-|", "|-|", "|-|", "|-|", "|-|", "|-|", "|-|", "|-|"},
-                {"|-|", "|-|", "|-|", "|-|", "|-|", "|-|", "|-|", "|-|"},
-                {"|-|", "|-|", "|-|", "|-|", "|-|", "|-|", "|-|", "|-|"},
-                {"|-|", "|-|", "|-|", "|-|", "|-|", "|-|", "|-|", "|-|"},
-                {p.get(0).name, p.get(1).name, p.get(2).name, p.get(3).name, p.get(4).name, p.get(5).name, p.get(6).name, p.get(7).name},
-                {r.name, n.name, b.name, q.name, k.name, b.name, n.name, r.name},
-                {"a", "b", "c", "d", "e", "f", "g", "h"}};
+//        board = new String[][]{
+//                {R.name, N.name, B.name, Q.name, K.name, B.name, N.name, R.name},
+//                {P.get(0).name, P.get(1).name, P.get(2).name, P.get(3).name, P.get(4).name, P.get(5).name, P.get(6).name, P.get(7).name},
+//                {"|-|", "|-|", "|-|", "|-|", "|-|", "|-|", "|-|", "|-|"},
+//                {"|-|", "|-|", "|-|", "|-|", "|-|", "|-|", "|-|", "|-|"},
+//                {"|-|", "|-|", "|-|", "|-|", "|-|", "|-|", "|-|", "|-|"},
+//                {"|-|", "|-|", "|-|", "|-|", "|-|", "|-|", "|-|", "|-|"},
+//                {p.get(0).name, p.get(1).name, p.get(2).name, p.get(3).name, p.get(4).name, p.get(5).name, p.get(6).name, p.get(7).name},
+//                {r.name, n.name, b.name, q.name, k.name, b.name, n.name, r.name}};
+
+        board = new ChessFigure[][]{
+                {R, N, B, Q, K, B, N, R},
+                {P.get(0), P.get(1), P.get(2), P.get(3), P.get(4), P.get(5), P.get(6), P.get(7)},
+                {emptyFigureCell, emptyFigureCell, emptyFigureCell, emptyFigureCell, emptyFigureCell, emptyFigureCell, emptyFigureCell, emptyFigureCell},
+                {emptyFigureCell, emptyFigureCell, emptyFigureCell, emptyFigureCell, emptyFigureCell, emptyFigureCell, emptyFigureCell, emptyFigureCell},
+                {emptyFigureCell, emptyFigureCell, emptyFigureCell, emptyFigureCell, emptyFigureCell, emptyFigureCell, emptyFigureCell, emptyFigureCell},
+                {emptyFigureCell, emptyFigureCell, emptyFigureCell, emptyFigureCell, emptyFigureCell, emptyFigureCell, emptyFigureCell, emptyFigureCell},
+                {p.get(0), p.get(1), p.get(2), p.get(3), p.get(4), p.get(5), p.get(6), p.get(7)},
+                {r, n, b, q, k, b, n, r}};
     }
 
 }
