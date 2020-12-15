@@ -14,12 +14,10 @@ public class Main {
 
     static ChessFigure[][] board;
     static ChessFigure emptyFigureCell = new ChessFigure("|-|", null);
-
     static int turnCounter = 0;
-    static String emptyCell = "|-|";
 
     public static void main(String[] args) {
-        initMap();
+        initCoordinateMap();
         createBoard();
         readMovesFromFile();
         handleRounds();
@@ -36,8 +34,59 @@ public class Main {
                 continue;
             }
             move(listOfCoordinates.get(turnCounter));
+            if (checkIfCheck()) {
+                System.out.println("CHECK");
+                showBoard();
+                return;
+            }
             turnCounter++;
         }
+    }
+
+    private static boolean checkIfAttackedFigureIsKing(Coordinate coordinate) {
+        return !board[coordinate.desiredRow][coordinate.desiredColumn].name.equalsIgnoreCase("|k|");
+    }
+
+    private static boolean checkIfCheck() {
+        Coordinate coordinateForWhiteKing = new Coordinate();
+        Coordinate coordinateForBlackKing = new Coordinate();
+
+        for (int i = 0; i < 8; ++i) {
+            for (int j = 0; j < 8; ++j) {
+                if (board[i][j].name.equals("|K|")) {
+                    coordinateForWhiteKing.desiredRow = i;
+                    coordinateForWhiteKing.desiredColumn = j;
+                }
+                if (board[i][j].name.equals("|k|")) {
+                    coordinateForBlackKing.desiredRow = i;
+                    coordinateForBlackKing.desiredColumn = j;
+                }
+            }
+        }
+
+        for (int i = 0; i < 8; ++i) {
+            for (int j = 0; j < 8; ++j) {
+                if (board[i][j] != emptyFigureCell) {
+                    if (!board[i][j].team.equals(board[coordinateForWhiteKing.desiredRow][coordinateForWhiteKing.desiredColumn].team)) {
+                        String figure = board[i][j].name;
+                        coordinateForWhiteKing.currentRow = i;
+                        coordinateForWhiteKing.currentColumn = j;
+                        if (checkForMovementPattern(figure, coordinateForWhiteKing)) {
+                            return true;
+                        }
+                    }
+                    if (!board[i][j].team.equals(board[coordinateForBlackKing.desiredRow][coordinateForBlackKing.desiredColumn].team)) {
+                        String figure = board[i][j].name;
+                        coordinateForBlackKing.currentRow = i;
+                        coordinateForBlackKing.currentColumn = j;
+                        if (checkForMovementPattern(figure, coordinateForBlackKing)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     private static boolean checkForMovementPattern(String figure, Coordinate coordinate) {
@@ -56,7 +105,6 @@ public class Main {
         if (figure.equalsIgnoreCase("|q|")) {
             return checkRookMovementPattern(coordinate) || checkBishopMovementPattern(coordinate);
         }
-
         if (figure.equalsIgnoreCase("|k|")) {
             return checkKingMovementPattern(coordinate);
         }
@@ -64,64 +112,65 @@ public class Main {
     }
 
     public static boolean checkKingMovementPattern(Coordinate coordinate) {
-        if ((Math.abs(coordinate.initialRow - coordinate.desiredRow) <= 1) && (Math.abs(coordinate.initialColumn - coordinate.desiredColumn) <= 1)) {
-            return true;
-        }
-        return false;
+        return (Math.abs(coordinate.currentRow - coordinate.desiredRow) <= 1) && (Math.abs(coordinate.currentColumn - coordinate.desiredColumn) <= 1);
     }
 
     public static boolean checkKnightMovementPattern(Coordinate coordinate) {
-        return ((Math.abs(coordinate.initialRow - coordinate.desiredRow) == 2) && ((Math.abs(coordinate.initialColumn - coordinate.desiredColumn) == 1))) ||
-                ((Math.abs(coordinate.initialRow - coordinate.desiredRow) == 1) && ((Math.abs(coordinate.initialColumn - coordinate.desiredColumn) == 2)));
+        return ((Math.abs(coordinate.currentRow - coordinate.desiredRow) == 2) && ((Math.abs(coordinate.currentColumn - coordinate.desiredColumn) == 1))) ||
+                ((Math.abs(coordinate.currentRow - coordinate.desiredRow) == 1) && ((Math.abs(coordinate.currentColumn - coordinate.desiredColumn) == 2)));
     }
 
     public static boolean checkPawnMovementPattern(Coordinate coordinate) {
-        if (coordinate.initialRow == 1 || coordinate.initialRow == 6) {
-            if ((Math.abs(coordinate.initialRow - coordinate.desiredRow) <= 2 && (coordinate.initialColumn == coordinate.desiredColumn))) {
+        if (coordinate.currentRow == 1 || coordinate.currentRow == 6) {
+            if ((Math.abs(coordinate.currentRow - coordinate.desiredRow) <= 2 && (coordinate.currentColumn.equals(coordinate.desiredColumn)))) {
                 return true;
             }
         }
-        if ((Math.abs(coordinate.initialRow - coordinate.desiredRow) == 1 && (coordinate.initialColumn == coordinate.desiredColumn))) {
+        if ((Math.abs(coordinate.currentRow - coordinate.desiredRow) == 1 && (coordinate.currentColumn.equals(coordinate.desiredColumn)))) {
             return true;
+        }
+        if ((Math.abs(coordinate.currentRow - coordinate.desiredRow) == 1 && (Math.abs(coordinate.currentColumn - coordinate.desiredColumn)) != 0)) {
+            return (!board[coordinate.currentRow][coordinate.currentColumn].team.equals(board[coordinate.desiredRow][coordinate.desiredColumn].team)) &&
+                    (board[coordinate.desiredRow][coordinate.desiredColumn].team != null);
         }
         return false;
     }
 
     public static boolean checkBishopMovementPattern(Coordinate coordinate) {
-        if (Math.abs(coordinate.initialRow - coordinate.desiredRow) == Math.abs(coordinate.initialColumn - coordinate.desiredColumn)) {
+        if (Math.abs(coordinate.currentRow - coordinate.desiredRow) == Math.abs(coordinate.currentColumn - coordinate.desiredColumn)) {
 
-            //Лево вверх
-            if ((coordinate.desiredRow < coordinate.initialRow) && (coordinate.desiredColumn < coordinate.initialColumn)) {
-                for (int i = 1; i <= coordinate.initialRow - coordinate.desiredRow; ++i) {
-                    if (board[coordinate.initialRow - i][coordinate.initialColumn - i].name != emptyCell) {
+            //left up
+            if ((coordinate.desiredRow < coordinate.currentRow) && (coordinate.desiredColumn < coordinate.currentColumn)) {
+                for (int i = 1; i < coordinate.currentRow - coordinate.desiredRow; ++i) {
+                    if (board[coordinate.currentRow - i][coordinate.currentColumn - i] != emptyFigureCell) {
                         return false;
                     }
                 }
                 return true;
             }
 
-            //Лево вниз
-            if ((coordinate.desiredRow > coordinate.initialRow) && (coordinate.desiredColumn < coordinate.initialColumn)) {
-                for (int i = 1; i <= Math.abs(coordinate.initialRow - coordinate.desiredRow); ++i) {
-                    if (board[coordinate.initialRow + i][coordinate.initialColumn - i].name != emptyCell) {
+            //left down
+            if ((coordinate.desiredRow > coordinate.currentRow) && (coordinate.desiredColumn < coordinate.currentColumn)) {
+                for (int i = 1; i < Math.abs(coordinate.currentRow - coordinate.desiredRow); ++i) {
+                    if (board[coordinate.currentRow + i][coordinate.currentColumn - i] != emptyFigureCell) {
                         return false;
                     }
                 }
             }
 
-            //Право вверх
-            if ((coordinate.desiredRow < coordinate.initialRow) && (coordinate.desiredColumn > coordinate.initialColumn)) {
-                for (int i = 1; i <= Math.abs(coordinate.initialRow - coordinate.desiredRow); ++i) {
-                    if (board[coordinate.initialRow - i][coordinate.initialColumn + i].name != emptyCell) {
+            //right up
+            if ((coordinate.desiredRow < coordinate.currentRow) && (coordinate.desiredColumn > coordinate.currentColumn)) {
+                for (int i = 1; i < Math.abs(coordinate.currentRow - coordinate.desiredRow); ++i) {
+                    if (!board[coordinate.currentRow - i][coordinate.currentColumn + i].equals(emptyFigureCell)) {
                         return false;
                     }
                 }
             }
 
-            //Право вниз
-            if ((coordinate.desiredRow > coordinate.initialRow) && (coordinate.desiredColumn > coordinate.initialColumn)) {
-                for (int i = 1; i <= coordinate.initialRow - coordinate.desiredRow; ++i) {
-                    if (board[coordinate.initialRow + i][coordinate.initialColumn + i].name != emptyCell) {
+            //right down
+            if ((coordinate.desiredRow > coordinate.currentRow) && (coordinate.desiredColumn > coordinate.currentColumn)) {
+                for (int i = 1; i < coordinate.currentRow - coordinate.desiredRow; ++i) {
+                    if (!board[coordinate.currentRow + i][coordinate.currentColumn + i].equals(emptyFigureCell)) {
                         return false;
                     }
                 }
@@ -135,23 +184,22 @@ public class Main {
 
     public static boolean checkRookMovementPattern(Coordinate coordinate) {
 
-        //horizontal can be optimized
-        if (((coordinate.initialRow - coordinate.desiredRow == 0) && Math.abs(coordinate.initialColumn - coordinate.desiredColumn) > 0)) {
+        if (((coordinate.currentRow - coordinate.desiredRow == 0) && Math.abs(coordinate.currentColumn - coordinate.desiredColumn) > 0)) {
 
-            //horizontal лево
-            if (coordinate.initialColumn > coordinate.desiredColumn) {
-                for (int i = 1; i < Math.abs(coordinate.desiredColumn - coordinate.desiredColumn); ++i) {
-                    if (board[coordinate.initialRow][coordinate.initialColumn - i].name != emptyCell) {
+            //horizontal left direction
+            if (coordinate.currentColumn > coordinate.desiredColumn) {
+                for (int i = 1; i < Math.abs(coordinate.currentColumn - coordinate.desiredColumn); ++i) {
+                    if (!board[coordinate.currentRow][coordinate.currentColumn - i].equals(emptyFigureCell)) {
                         return false;
                     }
                 }
                 return true;
             }
 
-            //horizontal право
-            if (coordinate.initialColumn < coordinate.desiredColumn) {
-                for (int i = 1; i < coordinate.desiredColumn - coordinate.desiredColumn; ++i) {
-                    if (board[coordinate.initialRow][coordinate.initialColumn + i].name != emptyCell) {
+            //horizontal right direction
+            if (coordinate.currentColumn < coordinate.desiredColumn) {
+                for (int i = 1; i < coordinate.currentColumn - coordinate.desiredColumn; ++i) {
+                    if (!board[coordinate.currentRow][coordinate.currentColumn + i].equals(emptyFigureCell)) {
                         return false;
                     }
                 }
@@ -160,23 +208,22 @@ public class Main {
             }
         }
 
-        //vertical can be optimized
-        if (((Math.abs(coordinate.initialRow - coordinate.desiredRow) > 0) && (coordinate.initialColumn - coordinate.desiredColumn) == 0)) {
+        if (((Math.abs(coordinate.currentRow - coordinate.desiredRow) > 0) && (coordinate.currentColumn - coordinate.desiredColumn) == 0)) {
 
-            //vertical вверх
-            if (coordinate.initialRow > coordinate.desiredRow) {
-                for (int i = 1; i < Math.abs(coordinate.desiredRow - coordinate.initialRow); ++i) {
-                    if (board[coordinate.initialRow - i][coordinate.initialColumn].name != emptyCell) {
+            //vertical up
+            if (coordinate.currentRow > coordinate.desiredRow) {
+                for (int i = 1; i < Math.abs(coordinate.desiredRow - coordinate.currentRow); ++i) {
+                    if (board[coordinate.currentRow - i][coordinate.currentColumn] != emptyFigureCell) {
                         return false;
                     }
                 }
                 return true;
             }
 
-            //vertical вниз
-            if (coordinate.initialRow < coordinate.desiredRow) {
-                for (int i = 1; i < coordinate.desiredRow - coordinate.initialRow; ++i) {
-                    if (board[coordinate.initialRow + i][coordinate.initialColumn].name != emptyCell) {
+            //vertical down
+            if (coordinate.currentRow < coordinate.desiredRow) {
+                for (int i = 1; i < coordinate.desiredRow - coordinate.currentRow; ++i) {
+                    if (board[coordinate.currentRow + i][coordinate.currentColumn] != emptyFigureCell) {
                         return false;
                     }
                 }
@@ -189,38 +236,34 @@ public class Main {
     }
 
     public static boolean moveCanBeDone(Coordinate coordinate) {
-        String figure = board[coordinate.initialRow][coordinate.initialColumn].name;
+        String figure = board[coordinate.currentRow][coordinate.currentColumn].name;
 
         return (checkForMovementPattern(figure, coordinate) &&
                 checkIfFigureExistsOnThisPosition(coordinate) &&
-                checkIfThereIsNoAllyFigureOnThatPosition(coordinate));
+                checkIfThereIsNoAllyFigureOnThatPosition(coordinate)) &&
+                checkIfAttackedFigureIsKing(coordinate);
     }
 
     public static boolean checkIfFigureExistsOnThisPosition(Coordinate coordinate) {
-        return !board[coordinate.initialRow][coordinate.initialColumn].equals(emptyCell);
+        return !board[coordinate.currentRow][coordinate.currentColumn].equals(emptyFigureCell);
     }
 
     public static boolean checkIfThereIsNoAllyFigureOnThatPosition(Coordinate coordinate) {
-        if (!board[coordinate.desiredRow][coordinate.desiredColumn].equals(emptyCell)) {
-            if (board[coordinate.initialRow][coordinate.initialColumn].team.equals(board[coordinate.desiredRow][coordinate.desiredColumn].team)) {
-                return false;
-            }else{
-                return true;
-            }
+        if (!board[coordinate.desiredRow][coordinate.desiredColumn].equals(emptyFigureCell)) {
+            return !board[coordinate.currentRow][coordinate.currentColumn].team.equals(board[coordinate.desiredRow][coordinate.desiredColumn].team);
         }
         return true;
     }
 
-    public static String scanFromKeyboard() {
+    public static void scanFromKeyboard() {
         System.out.println("Press enter for next move >>");
         Scanner scanner = new Scanner(System.in);
-        String line = scanner.nextLine();
-        return line;
+        scanner.nextLine();
     }
 
     public static void move(Coordinate it) {
-        ChessFigure figure = board[it.initialRow][it.initialColumn];
-        board[it.initialRow][it.initialColumn] = emptyFigureCell;
+        ChessFigure figure = board[it.currentRow][it.currentColumn];
+        board[it.currentRow][it.currentColumn] = emptyFigureCell;
         board[it.desiredRow][it.desiredColumn] = figure;
 
     }
@@ -229,9 +272,8 @@ public class Main {
         List<String> listOfMoves = new ArrayList<>();
 
 //        Path path = Paths.get("sample-moves.txt");
-//        Path path = Paths.get("sample-moves-invalid.txt");
+        Path path = Paths.get("sample-moves-invalid.txt");
 //        Path path = Paths.get("checkmate.txt");
-        Path path = Paths.get("custom.txt");
 
         try (Stream<String> stream = Files.lines(path)) {
             stream.forEach(listOfMoves::add);
@@ -242,8 +284,8 @@ public class Main {
         for (String it : listOfMoves) {
             Coordinate coordinate = new Coordinate();
 
-            coordinate.initialRow = Integer.parseInt(it.substring(1, 2)) - 1;
-            coordinate.initialColumn = charsToPosition.get(it.substring(0, 1));
+            coordinate.currentRow = Integer.parseInt(it.substring(1, 2)) - 1;
+            coordinate.currentColumn = charsToPosition.get(it.substring(0, 1));
 
             coordinate.desiredRow = Integer.parseInt(it.substring(3, 4)) - 1;
             coordinate.desiredColumn = charsToPosition.get(it.substring(2, 3));
@@ -270,7 +312,7 @@ public class Main {
         }
     }
 
-    public static void initMap() {
+    public static void initCoordinateMap() {
         charsToPosition.put("a", 0);
         charsToPosition.put("b", 1);
         charsToPosition.put("c", 2);
@@ -288,7 +330,7 @@ public class Main {
         ChessFigure N = new ChessFigure("|" + "N" + "|", "white");
         ChessFigure R = new ChessFigure("|" + "R" + "|", "white");
 
-        List<ChessFigure> P = new ArrayList<ChessFigure>(8);
+        List<ChessFigure> P = new ArrayList<>(8);
         for (int i = 0; i < 8; i++) {
             P.add(new ChessFigure("|" + "P" + "|", "white"));
         }
@@ -299,21 +341,10 @@ public class Main {
         ChessFigure n = new ChessFigure("|" + "n" + "|", "black");
         ChessFigure r = new ChessFigure("|" + "r" + "|", "black");
 
-        List<ChessFigure> p = new ArrayList<ChessFigure>(8);
+        List<ChessFigure> p = new ArrayList<>(8);
         for (int i = 0; i < 8; i++) {
             p.add(new ChessFigure("|" + "p" + "|", "black"));
         }
-
-
-//        board = new String[][]{
-//                {R.name, N.name, B.name, Q.name, K.name, B.name, N.name, R.name},
-//                {P.get(0).name, P.get(1).name, P.get(2).name, P.get(3).name, P.get(4).name, P.get(5).name, P.get(6).name, P.get(7).name},
-//                {"|-|", "|-|", "|-|", "|-|", "|-|", "|-|", "|-|", "|-|"},
-//                {"|-|", "|-|", "|-|", "|-|", "|-|", "|-|", "|-|", "|-|"},
-//                {"|-|", "|-|", "|-|", "|-|", "|-|", "|-|", "|-|", "|-|"},
-//                {"|-|", "|-|", "|-|", "|-|", "|-|", "|-|", "|-|", "|-|"},
-//                {p.get(0).name, p.get(1).name, p.get(2).name, p.get(3).name, p.get(4).name, p.get(5).name, p.get(6).name, p.get(7).name},
-//                {r.name, n.name, b.name, q.name, k.name, b.name, n.name, r.name}};
 
         board = new ChessFigure[][]{
                 {R, N, B, Q, K, B, N, R},
